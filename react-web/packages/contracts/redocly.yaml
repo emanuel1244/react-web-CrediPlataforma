@@ -1,0 +1,9 @@
+# Configuración de Redocly para la validación del contrato.
+# Relajamos reglas de estilo opcionales: no exigimos 4XX en operaciones de solo
+# lectura simples (los errores comunes están documentados en responses globales).
+extends:
+  - recommended
+
+rules:
+  operation-4xx-response: off
+  info-license-strict: warn

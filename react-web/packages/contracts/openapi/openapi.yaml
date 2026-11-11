@@ -1,0 +1,107 @@
+openapi: 3.0.3
+info:
+  title: Plataforma de préstamos y recaudo — API
+  version: 1.0.0
+  description: >
+    Contrato REST versionado `/v1` de la plataforma multi-tenant de préstamos.
+    Fuente de verdad para el backend NestJS y el cliente TypeScript del frontend.
+
+    Convenciones:
+    - Dinero en COP como enteros (unidad mínima); nunca floating point.
+    - Fechas/timestamps en UTC (ISO 8601); presentación en America/Bogota.
+    - Toda entidad de negocio pertenece a un tenant; el backend valida tenant,
+      ownership y asignación de cartera en cada operación.
+    - Operaciones de dinero: transaccionales, auditables e idempotentes.
+  contact:
+    name: Equipo plataforma
+  license:
+    name: Propietaria
+    url: 'https://ejemplo.co/licencia'
+
+servers:
+  - url: https://api.dev.ejemplo.co/v1
+    description: Desarrollo
+  - url: https://api.stage.ejemplo.co/v1
+    description: Staging
+  - url: https://api.ejemplo.co/v1
+    description: Producción
+
+security:
+  - cognitoJwt: []
+
+tags:
+  - name: Identidad
+    description: Perfil del usuario autenticado
+  - name: Cliente
+    description: Operaciones del portal del cliente
+  - name: Backoffice
+    description: Operaciones del prestamista/administrador
+  - name: Cobrador
+    description: Cartera asignada y gestiones de cobranza (COLLECTION_AGENT)
+  - name: Webhooks
+    description: Notificaciones de proveedores de pago (públicas, firma obligatoria)
+  - name: Infra
+    description: Salud y diagnóstico
+
+paths:
+  $ref: './paths/_index.yaml'
+
+components:
+  securitySchemes:
+    cognitoJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT emitido por Amazon Cognito. El authorizer de API Gateway valida el
+        token; el backend resuelve tenant_id y rol desde los claims.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+      description: Página (1-indexed)
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      description: Tamaño de página
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128 }
+      description: Clave de idempotencia obligatoria para crear pagos y aplicar recaudos.
+
+  schemas:
+    $ref: './schemas/_index.yaml'
+
+  responses:
+    BadRequest:
+      description: Solicitud inválida
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: No autenticado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Sin permisos (rol, tenant, ownership o asignación)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Conflicto (p. ej. idempotencia o estado inválido)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }

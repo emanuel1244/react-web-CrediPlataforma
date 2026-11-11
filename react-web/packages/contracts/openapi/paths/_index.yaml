@@ -1,0 +1,82 @@
+# Índice de paths del contrato /v1. Agrupa cliente, backoffice, cobrador,
+# webhooks e infraestructura. Las operaciones viven en archivos por dominio.
+
+# ---------------- Identidad / Cliente ----------------
+/me:
+  $ref: './client.yaml#/me'
+/me/profile:
+  $ref: './client.yaml#/meProfile'
+/loan-applications:
+  $ref: './client.yaml#/loanApplications'
+/loan-applications/{id}:
+  $ref: './client.yaml#/loanApplicationById'
+/loans:
+  $ref: './client.yaml#/loans'
+/loans/{id}:
+  $ref: './client.yaml#/loanById'
+/loans/{id}/installments:
+  $ref: './client.yaml#/loanInstallments'
+/payments:
+  $ref: './client.yaml#/payments'
+/payments/intents:
+  $ref: './client.yaml#/paymentIntents'
+/documents/{id}/download:
+  $ref: './client.yaml#/documentDownload'
+
+# ---------------- Backoffice ----------------
+/admin/dashboard:
+  $ref: './admin.yaml#/dashboard'
+/admin/customers:
+  $ref: './admin.yaml#/customers'
+/admin/customers/{id}:
+  $ref: './admin.yaml#/customerById'
+/admin/customers/{id}/payment-history:
+  $ref: './admin.yaml#/customerPaymentHistory'
+/admin/loan-applications:
+  $ref: './admin.yaml#/applications'
+/admin/loan-applications/{id}/approve:
+  $ref: './admin.yaml#/approveApplication'
+/admin/loan-applications/{id}/reject:
+  $ref: './admin.yaml#/rejectApplication'
+/admin/loans:
+  $ref: './admin.yaml#/loans'
+/admin/loans/{id}:
+  $ref: './admin.yaml#/loanById'
+/admin/loans/{id}/installments:
+  $ref: './admin.yaml#/loanInstallments'
+/admin/loans/{id}/ledger:
+  $ref: './admin.yaml#/loanLedger'
+/admin/loans/{id}/audit:
+  $ref: './admin.yaml#/loanAudit'
+/admin/loans/{id}/disburse:
+  $ref: './admin.yaml#/disburse'
+/admin/loans/{id}/payments/manual:
+  $ref: './admin.yaml#/manualPayment'
+/admin/loans/{id}/adjustments:
+  $ref: './admin.yaml#/adjustments'
+/admin/payments:
+  $ref: './admin.yaml#/payments'
+/admin/payments/{id}/review:
+  $ref: './admin.yaml#/reviewPayment'
+/admin/collections/overdue:
+  $ref: './admin.yaml#/overdue'
+/admin/reports/portfolio:
+  $ref: './admin.yaml#/reportPortfolio'
+/admin/reports/cashflow:
+  $ref: './admin.yaml#/reportCashflow'
+
+# ---------------- Cobrador ----------------
+/collector/portfolio:
+  $ref: './collector.yaml#/portfolio'
+/collector/payments:
+  $ref: './collector.yaml#/payments'
+/collector/activities:
+  $ref: './collector.yaml#/activities'
+/admin/loans/{id}/assignments:
+  $ref: './collector.yaml#/assignments'
+
+# ---------------- Webhooks e infraestructura ----------------
+/webhooks/payments/{provider}:
+  $ref: './infra.yaml#/paymentWebhook'
+/health:
+  $ref: './infra.yaml#/health'

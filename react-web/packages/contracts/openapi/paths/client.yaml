@@ -1,0 +1,193 @@
+# Operaciones del portal del cliente. Todas requieren JWT; el backend valida
+# ownership (el cliente solo accede a sus propios recursos).
+
+me:
+  get:
+    tags: [Identidad]
+    summary: Perfil del usuario autenticado
+    operationId: getMe
+    responses:
+      '200':
+        description: Perfil
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/UserProfile' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+
+meProfile:
+  patch:
+    tags: [Cliente]
+    summary: Actualizar perfil propio
+    operationId: updateMyProfile
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/CustomerUpdate' }
+    responses:
+      '200':
+        description: Perfil actualizado
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Customer' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+
+loanApplications:
+  get:
+    tags: [Cliente]
+    summary: Listar mis solicitudes
+    operationId: listMyApplications
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: Solicitudes
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/ApplicationPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+  post:
+    tags: [Cliente]
+    summary: Crear solicitud de préstamo
+    operationId: createApplication
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/LoanApplicationCreate' }
+    responses:
+      '201':
+        description: Solicitud creada
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanApplication' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+
+loanApplicationById:
+  get:
+    tags: [Cliente]
+    summary: Detalle de una solicitud propia
+    operationId: getApplication
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Solicitud
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanApplication' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+
+loans:
+  get:
+    tags: [Cliente]
+    summary: Listar mis préstamos
+    operationId: listMyLoans
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: Préstamos
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+
+loanById:
+  get:
+    tags: [Cliente]
+    summary: Detalle de un préstamo propio
+    operationId: getLoan
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Préstamo
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Loan' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+
+loanInstallments:
+  get:
+    tags: [Cliente]
+    summary: Cuotas de un préstamo propio
+    operationId: getLoanInstallments
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Cuotas
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../schemas/_index.yaml#/Installment' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+
+payments:
+  get:
+    tags: [Cliente]
+    summary: Mi historial de pagos
+    operationId: listMyPayments
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: Pagos
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/PaymentPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+
+paymentIntents:
+  post:
+    tags: [Cliente]
+    summary: Crear intención de pago (PSE/tarjeta)
+    description: >
+      Crea una intención de pago. El resultado NO se marca exitoso por
+      redirección: se confirma por webhook firmado y/o consulta server-to-server.
+    operationId: createPaymentIntent
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/PaymentIntentCreate' }
+    responses:
+      '201':
+        description: Intención creada
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/PaymentIntent' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+
+documentDownload:
+  get:
+    tags: [Cliente]
+    summary: Descargar documento (URL prefirmada)
+    operationId: downloadDocument
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: URL prefirmada de corta duración
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string, format: uri }
+                expiresAt: { type: string, format: date-time }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }

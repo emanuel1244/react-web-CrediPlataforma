@@ -1,0 +1,56 @@
+# Webhooks de proveedores de pago e infraestructura.
+
+paymentWebhook:
+  post:
+    tags: [Webhooks]
+    summary: Webhook de pagos (público, firma obligatoria)
+    description: >
+      Endpoint público protegido por firma del proveedor. El backend verifica la
+      firma/autenticidad, deduplica por evento/providerReference, responde rápido
+      y procesa asíncronamente vía SQS. NO se marca el pago exitoso por la
+      recepción del webhook sin validar la firma.
+    operationId: paymentWebhook
+    security: []
+    parameters:
+      - { name: provider, in: path, required: true, schema: { type: string, enum: [wompi, epayco, payu] } }
+      - name: X-Signature
+        in: header
+        required: true
+        schema: { type: string }
+        description: Firma del proveedor para verificar autenticidad.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Payload del proveedor (estructura específica por proveedor).
+            additionalProperties: true
+    responses:
+      '200': { description: Evento recibido y encolado }
+      '202': { description: Aceptado para procesamiento asíncrono }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401':
+        description: Firma inválida
+        content:
+          application/problem+json:
+            schema: { $ref: '../schemas/_index.yaml#/Problem' }
+
+health:
+  get:
+    tags: [Infra]
+    summary: Health check
+    description: No expone datos sensibles.
+    operationId: health
+    security: []
+    responses:
+      '200':
+        description: Servicio operativo
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, example: ok }
+                version: { type: string, example: '1.0.0' }
+                time: { type: string, format: date-time }

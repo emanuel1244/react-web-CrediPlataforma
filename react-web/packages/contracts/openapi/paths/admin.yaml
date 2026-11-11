@@ -1,0 +1,391 @@
+# Operaciones del backoffice (prestamista/administrador). El backend verifica
+# rol (LENDER_ADMIN/LENDER_OPERATOR), tenant y, cuando aplica, umbrales y auditoría.
+
+dashboard:
+  get:
+    tags: [Backoffice]
+    summary: KPIs del prestamista
+    operationId: getDashboard
+    responses:
+      '200':
+        description: Resumen (capital, intereses y liquidez separados)
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/DashboardSummary' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+
+customers:
+  get:
+    tags: [Backoffice]
+    summary: Listar clientes
+    operationId: listCustomers
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+      - { name: q, in: query, schema: { type: string }, description: Búsqueda por nombre o documento }
+      - { name: status, in: query, schema: { $ref: '../schemas/_index.yaml#/CustomerStatus' } }
+    responses:
+      '200':
+        description: Clientes
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/CustomerPage' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+
+customerById:
+  get:
+    tags: [Backoffice]
+    summary: Detalle de cliente
+    operationId: getCustomer
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Cliente
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Customer' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+  patch:
+    tags: [Backoffice]
+    summary: Actualizar cliente
+    operationId: updateCustomer
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/CustomerUpdate' }
+    responses:
+      '200':
+        description: Cliente actualizado
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Customer' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+  delete:
+    tags: [Backoffice]
+    summary: Eliminar cliente (soft-delete)
+    description: No elimina físicamente; marca el registro como eliminado y conserva auditoría.
+    operationId: deleteCustomer
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '204': { description: Eliminado (soft-delete) }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+
+customerPaymentHistory:
+  get:
+    tags: [Backoffice]
+    summary: Historial de pagos de un cliente
+    operationId: getCustomerPaymentHistory
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Pagos
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/PaymentPage' }
+
+applications:
+  get:
+    tags: [Backoffice]
+    summary: Bandeja de solicitudes
+    operationId: listApplications
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+      - { name: status, in: query, schema: { $ref: '../schemas/_index.yaml#/ApplicationStatus' } }
+    responses:
+      '200':
+        description: Solicitudes
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/ApplicationPage' }
+
+approveApplication:
+  post:
+    tags: [Backoffice]
+    summary: Aprobar solicitud
+    description: >
+      Registra la tasa (definida por el prestamista), usuario, fecha y condiciones.
+      No desembolsa automáticamente; emite el evento LoanApproved.
+    operationId: approveApplication
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/ApproveApplication' }
+    responses:
+      '200':
+        description: Solicitud aprobada
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanApplication' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+
+rejectApplication:
+  post:
+    tags: [Backoffice]
+    summary: Rechazar solicitud
+    operationId: rejectApplication
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/RejectApplication' }
+    responses:
+      '200':
+        description: Solicitud rechazada
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanApplication' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+
+loans:
+  get:
+    tags: [Backoffice]
+    summary: Listar préstamos del tenant
+    operationId: listLoans
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+      - { name: status, in: query, schema: { $ref: '../schemas/_index.yaml#/LoanStatus' } }
+      - { name: overdue, in: query, schema: { type: boolean } }
+    responses:
+      '200':
+        description: Préstamos
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanPage' }
+
+loanById:
+  get:
+    tags: [Backoffice]
+    summary: Detalle de préstamo
+    operationId: getAdminLoan
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Préstamo
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Loan' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+
+loanInstallments:
+  get:
+    tags: [Backoffice]
+    summary: Cuotas del préstamo
+    operationId: getAdminLoanInstallments
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Cuotas
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../schemas/_index.yaml#/Installment' }
+
+loanLedger:
+  get:
+    tags: [Backoffice]
+    summary: Movimientos de ledger del préstamo (inmutable)
+    operationId: getLoanLedger
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Ledger
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../schemas/_index.yaml#/LedgerEntry' }
+
+loanAudit:
+  get:
+    tags: [Backoffice]
+    summary: Trazabilidad / auditoría del préstamo
+    operationId: getLoanAudit
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Auditoría
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../schemas/_index.yaml#/AuditLog' }
+
+disburse:
+  post:
+    tags: [Backoffice]
+    summary: Registrar desembolso
+    description: >
+      Transferencia o efectivo. Crea calendario y movimientos de ledger de forma
+      atómica, emite LoanDisbursed y notifica al cliente.
+    operationId: disburseLoan
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - $ref: '../openapi.yaml#/components/parameters/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/DisburseRequest' }
+    responses:
+      '200':
+        description: Desembolsado
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Loan' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+
+manualPayment:
+  post:
+    tags: [Backoffice]
+    summary: Registrar pago manual (efectivo/transferencia)
+    description: Nace en PENDING_REVIEW; solo impacta el ledger tras aprobarse.
+    operationId: registerManualPayment
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - $ref: '../openapi.yaml#/components/parameters/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/ManualPaymentCreate' }
+    responses:
+      '201':
+        description: Pago registrado en revisión
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Payment' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+
+adjustments:
+  post:
+    tags: [Backoffice]
+    summary: Ajuste/reverso auditado del ledger
+    description: No modifica movimientos previos; agrega un movimiento corrector con motivo.
+    operationId: createAdjustment
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/LedgerAdjustment' }
+    responses:
+      '201': { description: Ajuste aplicado }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+
+payments:
+  get:
+    tags: [Backoffice]
+    summary: Pagos del tenant (revisión de recaudos)
+    operationId: listAdminPayments
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+      - { name: status, in: query, schema: { $ref: '../schemas/_index.yaml#/PaymentStatus' } }
+      - { name: channel, in: query, schema: { $ref: '../schemas/_index.yaml#/PaymentChannel' } }
+    responses:
+      '200':
+        description: Pagos
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/PaymentPage' }
+
+reviewPayment:
+  post:
+    tags: [Backoffice]
+    summary: Aprobar/rechazar pago manual
+    description: Aprobar aplica al ledger; ambas acciones quedan auditadas.
+    operationId: reviewPayment
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [approve]
+            properties:
+              approve: { type: boolean }
+              reason: { type: string }
+    responses:
+      '200':
+        description: Pago resuelto
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Payment' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+
+overdue:
+  get:
+    tags: [Backoffice]
+    summary: Cartera vencida
+    operationId: listOverdue
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: Préstamos en mora
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanPage' }
+
+reportPortfolio:
+  get:
+    tags: [Backoffice]
+    summary: Reporte de cartera
+    operationId: reportPortfolio
+    parameters:
+      - { name: format, in: query, schema: { type: string, enum: [json, csv, xlsx] } }
+    responses:
+      '200':
+        description: Reporte
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/DashboardSummary' }
+
+reportCashflow:
+  get:
+    tags: [Backoffice]
+    summary: Reporte de flujo de caja
+    operationId: reportCashflow
+    parameters:
+      - { name: from, in: query, schema: { type: string, format: date } }
+      - { name: to, in: query, schema: { type: string, format: date } }
+    responses:
+      '200':
+        description: Flujo de caja
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  period: { type: string }
+                  inflow: { $ref: '../schemas/_index.yaml#/Money' }
+                  outflow: { $ref: '../schemas/_index.yaml#/Money' }

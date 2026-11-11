@@ -1,0 +1,17 @@
+{
+  "name": "@prestamos/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Contrato OpenAPI /v1 y tipos compartidos de la plataforma de préstamos",
+  "type": "module",
+  "main": "openapi/openapi.yaml",
+  "scripts": {
+    "validate": "redocly lint openapi/openapi.yaml",
+    "bundle": "redocly bundle openapi/openapi.yaml -o dist/openapi.bundled.yaml",
+    "gen:types": "openapi-typescript openapi/openapi.yaml -o src/types.gen.ts"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.25.0",
+    "openapi-typescript": "^7.4.0"
+  }
+}

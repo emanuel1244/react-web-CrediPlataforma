@@ -1,0 +1,134 @@
+# Operaciones del COLLECTION_AGENT y asignación de cartera.
+# El backend filtra SIEMPRE por tenant_id + collector_user_id (asignación vigente);
+# el cobrador no puede ver cartera de otros ni ejecutar operaciones financieras restringidas.
+
+portfolio:
+  get:
+    tags: [Cobrador]
+    summary: Mi cartera asignada
+    operationId: getMyPortfolio
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/Page'
+      - $ref: '../openapi.yaml#/components/parameters/PageSize'
+    responses:
+      '200':
+        description: Préstamos asignados al cobrador
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanPage' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+
+payments:
+  get:
+    tags: [Cobrador]
+    summary: Recaudos de mi cartera
+    operationId: getMyCollections
+    responses:
+      '200':
+        description: Pagos registrados en la cartera asignada
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/PaymentPage' }
+  post:
+    tags: [Cobrador]
+    summary: Registrar recaudo (efectivo/transferencia)
+    description: >
+      Nace en PENDING_REVIEW; genera recibo y registra el usuario. Solo impacta
+      el ledger tras la aprobación del prestamista. El préstamo debe estar en la
+      cartera asignada al cobrador.
+    operationId: registerCollection
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                required: [loanId]
+                properties:
+                  loanId: { type: string }
+              - $ref: '../schemas/_index.yaml#/ManualPaymentCreate'
+    responses:
+      '201':
+        description: Recaudo registrado en revisión (con recibo)
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/Payment' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+
+activities:
+  get:
+    tags: [Cobrador]
+    summary: Gestiones de cobranza de mi cartera
+    operationId: listActivities
+    parameters:
+      - { name: loanId, in: query, schema: { type: string } }
+    responses:
+      '200':
+        description: Gestiones
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../schemas/_index.yaml#/CollectionActivity' }
+  post:
+    tags: [Cobrador]
+    summary: Registrar gestión de cobranza
+    description: Llamada/mensaje/visita con resultado y próxima acción. No se puede borrar; solo corregir con auditoría.
+    operationId: createActivity
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/_index.yaml#/CollectionActivityCreate' }
+    responses:
+      '201':
+        description: Gestión registrada
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/CollectionActivity' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+
+assignments:
+  get:
+    tags: [Cobrador]
+    summary: Historial de asignaciones de un préstamo
+    operationId: listAssignments
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '200':
+        description: Asignaciones (vigente + historial)
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../schemas/_index.yaml#/LoanAssignment' }
+  post:
+    tags: [Backoffice]
+    summary: Asignar/reasignar préstamo a un cobrador
+    description: Solo LENDER_ADMIN o roles autorizados. No sobrescribe asignaciones previas; conserva historial y audita.
+    operationId: assignLoan
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [collectorUserId]
+            properties:
+              collectorUserId: { type: string }
+              notes: { type: string }
+    responses:
+      '201':
+        description: Asignación creada
+        content:
+          application/json:
+            schema: { $ref: '../schemas/_index.yaml#/LoanAssignment' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }

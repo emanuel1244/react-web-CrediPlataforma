@@ -1,0 +1,349 @@
+# Schemas reutilizables del contrato /v1.
+# Dinero: enteros COP. Fechas: date-time UTC. IDs públicos: UUID/opaco.
+
+# ---------------- Errores y utilidades ----------------
+Problem:
+  type: object
+  description: Error en formato RFC 7807 (problem+json).
+  required: [title, status]
+  properties:
+    type: { type: string, format: uri, example: 'about:blank' }
+    title: { type: string, example: 'Solicitud inválida' }
+    status: { type: integer, example: 400 }
+    detail: { type: string }
+    instance: { type: string }
+    errors:
+      type: array
+      items:
+        type: object
+        properties:
+          field: { type: string }
+          message: { type: string }
+
+PageMeta:
+  type: object
+  required: [page, pageSize, total]
+  properties:
+    page: { type: integer, example: 1 }
+    pageSize: { type: integer, example: 20 }
+    total: { type: integer, example: 134 }
+
+Money:
+  type: integer
+  format: int64
+  minimum: 0
+  description: Monto en COP como entero (unidad mínima). No usar decimales.
+  example: 1500000
+
+# ---------------- Enums de estado ----------------
+Role:
+  type: string
+  enum: [PLATFORM_ADMIN, LENDER_ADMIN, LENDER_OPERATOR, COLLECTION_AGENT, CUSTOMER]
+
+Frequency:
+  type: string
+  enum: [DAILY, WEEKLY, BIWEEKLY, MONTHLY, ANNUAL]
+
+CustomerStatus:
+  type: string
+  enum: [PENDING, ACTIVE, REJECTED, BLOCKED]
+
+ApplicationStatus:
+  type: string
+  enum: [DRAFT, SUBMITTED, IN_REVIEW, APPROVED, REJECTED, CANCELLED]
+
+LoanStatus:
+  type: string
+  enum: [PENDING_DISBURSEMENT, ACTIVE, PAID_OFF, CANCELLED, DEFAULTED]
+
+InstallmentStatus:
+  type: string
+  enum: [PENDING, PARTIALLY_PAID, PAID, OVERDUE, WAIVED]
+
+PaymentStatus:
+  type: string
+  enum: [CREATED, PENDING, APPROVED, DECLINED, EXPIRED, REFUNDED, REVERSED, PENDING_REVIEW]
+
+PaymentChannel:
+  type: string
+  enum: [PSE, CARD, CASH, TRANSFER]
+
+# ---------------- Entidades ----------------
+UserProfile:
+  type: object
+  required: [id, name, email, role, tenantId]
+  properties:
+    id: { type: string }
+    name: { type: string }
+    email: { type: string, format: email }
+    role: { $ref: '#/Role' }
+    tenantId: { type: string }
+
+Customer:
+  type: object
+  required: [id, name, document, status]
+  properties:
+    id: { type: string }
+    name: { type: string }
+    document: { type: string }
+    email: { type: string, format: email }
+    phone: { type: string }
+    status: { $ref: '#/CustomerStatus' }
+    activeLoans: { type: integer }
+    punctuality: { type: number, format: float, minimum: 0, maximum: 1 }
+
+CustomerUpdate:
+  type: object
+  properties:
+    name: { type: string }
+    email: { type: string, format: email }
+    phone: { type: string }
+    status: { $ref: '#/CustomerStatus' }
+
+LoanApplication:
+  type: object
+  required: [id, amount, termMonths, frequency, status]
+  properties:
+    id: { type: string }
+    customerName: { type: string }
+    amount: { $ref: '#/Money' }
+    termMonths: { type: integer, minimum: 1 }
+    frequency: { $ref: '#/Frequency' }
+    purpose: { type: string }
+    status: { $ref: '#/ApplicationStatus' }
+    submittedAt: { type: string, format: date-time }
+
+LoanApplicationCreate:
+  type: object
+  required: [amount, termMonths, frequency]
+  properties:
+    amount: { $ref: '#/Money' }
+    termMonths: { type: integer, minimum: 1 }
+    frequency: { $ref: '#/Frequency' }
+    purpose: { type: string }
+
+ApproveApplication:
+  type: object
+  required: [monthlyRate]
+  properties:
+    monthlyRate:
+      type: number
+      format: float
+      description: Tasa mensual (ej. 0.022 = 2,2%). La define el prestamista por solicitud.
+    note: { type: string }
+
+RejectApplication:
+  type: object
+  required: [reason]
+  properties:
+    reason: { type: string }
+
+Loan:
+  type: object
+  required: [id, principal, outstanding, rate, frequency, status]
+  properties:
+    id: { type: string }
+    customerName: { type: string }
+    principal: { $ref: '#/Money' }
+    outstanding: { $ref: '#/Money' }
+    rate: { type: number, format: float, description: Tasa mensual (fracción) }
+    frequency: { $ref: '#/Frequency' }
+    status: { $ref: '#/LoanStatus' }
+    nextDueDate: { type: string, format: date-time }
+    overdueDays: { type: integer, minimum: 0 }
+
+Installment:
+  type: object
+  required: [id, number, dueDate, total, status]
+  properties:
+    id: { type: string }
+    number: { type: integer }
+    dueDate: { type: string, format: date-time }
+    principal: { $ref: '#/Money' }
+    interest: { $ref: '#/Money' }
+    fees: { $ref: '#/Money' }
+    total: { $ref: '#/Money' }
+    balance: { $ref: '#/Money' }
+    status: { $ref: '#/InstallmentStatus' }
+    overdueDays: { type: integer, minimum: 0 }
+
+LedgerEntry:
+  type: object
+  description: Movimiento inmutable del ledger (doble partida).
+  required: [id, loanId, date, concept, account, debit, credit, balance]
+  properties:
+    id: { type: string }
+    loanId: { type: string }
+    date: { type: string, format: date-time }
+    concept: { type: string }
+    account:
+      type: string
+      enum: [CAPITAL, INTERES, MORA, CARGOS, CAJA]
+    debit: { $ref: '#/Money' }
+    credit: { $ref: '#/Money' }
+    balance: { $ref: '#/Money' }
+
+Payment:
+  type: object
+  required: [id, loanId, amount, channel, status, reference, createdAt]
+  properties:
+    id: { type: string }
+    loanId: { type: string }
+    amount: { $ref: '#/Money' }
+    channel: { $ref: '#/PaymentChannel' }
+    status: { $ref: '#/PaymentStatus' }
+    reference: { type: string }
+    createdAt: { type: string, format: date-time }
+    registeredBy: { type: string }
+
+PaymentIntentCreate:
+  type: object
+  required: [loanId, amount, channel]
+  properties:
+    loanId: { type: string }
+    installmentIds:
+      type: array
+      items: { type: string }
+    amount: { $ref: '#/Money' }
+    channel: { $ref: '#/PaymentChannel' }
+
+PaymentIntent:
+  type: object
+  required: [id, status, amount]
+  properties:
+    id: { type: string }
+    providerReference: { type: string }
+    amount: { $ref: '#/Money' }
+    status: { $ref: '#/PaymentStatus' }
+    redirectUrl: { type: string, format: uri }
+
+ManualPaymentCreate:
+  type: object
+  required: [amount, channel]
+  properties:
+    amount: { $ref: '#/Money' }
+    channel:
+      type: string
+      enum: [CASH, TRANSFER]
+    reference: { type: string }
+    note: { type: string }
+
+LedgerAdjustment:
+  type: object
+  required: [concept, amount, reason]
+  properties:
+    concept: { type: string }
+    amount:
+      type: integer
+      format: int64
+      description: Positivo suma al saldo; negativo lo reduce. No modifica movimientos previos.
+    reason: { type: string }
+
+DisburseRequest:
+  type: object
+  required: [method]
+  properties:
+    method:
+      type: string
+      enum: [TRANSFER, CASH]
+    reference: { type: string }
+
+LoanAssignment:
+  type: object
+  required: [id, loanId, collectorUserId, status]
+  properties:
+    id: { type: string }
+    loanId: { type: string }
+    collectorUserId: { type: string }
+    assignedByUserId: { type: string }
+    assignedAt: { type: string, format: date-time }
+    endedAt: { type: string, format: date-time, nullable: true }
+    status: { type: string, enum: [ACTIVE, ENDED] }
+    notes: { type: string }
+
+CollectionActivity:
+  type: object
+  required: [id, loanId, channel, result, createdAt]
+  properties:
+    id: { type: string }
+    loanId: { type: string }
+    installmentId: { type: string, nullable: true }
+    channel:
+      type: string
+      enum: [CALL, MESSAGE, VISIT, OTHER]
+    result: { type: string }
+    notes: { type: string }
+    promiseDate: { type: string, format: date-time, nullable: true }
+    nextActionAt: { type: string, format: date-time, nullable: true }
+    createdAt: { type: string, format: date-time }
+
+CollectionActivityCreate:
+  type: object
+  required: [loanId, channel, result]
+  properties:
+    loanId: { type: string }
+    installmentId: { type: string }
+    channel:
+      type: string
+      enum: [CALL, MESSAGE, VISIT, OTHER]
+    result: { type: string }
+    notes: { type: string }
+    promiseDate: { type: string, format: date-time }
+    nextActionAt: { type: string, format: date-time }
+
+AuditLog:
+  type: object
+  required: [id, entity, entityId, action, actor, at]
+  properties:
+    id: { type: string }
+    entity: { type: string }
+    entityId: { type: string }
+    action: { type: string }
+    actor: { type: string }
+    at: { type: string, format: date-time }
+    detail: { type: string }
+
+DashboardSummary:
+  type: object
+  description: KPIs con capital, intereses y liquidez SIEMPRE separados.
+  properties:
+    capitalDisponible: { $ref: '#/Money' }
+    capitalColocado: { $ref: '#/Money' }
+    capitalRecuperado: { $ref: '#/Money' }
+    interesesRecaudados: { $ref: '#/Money' }
+    interesesProyectados: { $ref: '#/Money' }
+    carteraPorCobrar: { $ref: '#/Money' }
+    carteraVencida: { $ref: '#/Money' }
+    recaudoMes: { $ref: '#/Money' }
+    prestamosActivos: { type: integer }
+    prestamosLiquidados: { type: integer }
+    prestamosEnMora: { type: integer }
+
+# ---------------- Páginas (listas) ----------------
+CustomerPage:
+  type: object
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '#/Customer' } }
+    meta: { $ref: '#/PageMeta' }
+
+LoanPage:
+  type: object
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '#/Loan' } }
+    meta: { $ref: '#/PageMeta' }
+
+ApplicationPage:
+  type: object
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '#/LoanApplication' } }
+    meta: { $ref: '#/PageMeta' }
+
+PaymentPage:
+  type: object
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '#/Payment' } }
+    meta: { $ref: '#/PageMeta' }
